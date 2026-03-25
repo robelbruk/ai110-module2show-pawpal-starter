@@ -1,6 +1,6 @@
 from datetime import date
 
-from pawpal_system import CareTask, Owner, Pet, Scheduler
+from pawpal_system import CareTask, DailyPlan, Owner, Pet, Scheduler
 
 
 def build_demo_data() -> tuple[Owner, list[Pet], list[CareTask]]:
@@ -16,7 +16,31 @@ def build_demo_data() -> tuple[Owner, list[Pet], list[CareTask]]:
     dog = Pet(name="Buddy", species="Dog", age=5, special_needs=["exercise"])
     cat = Pet(name="Mochi", species="Cat", age=3, special_needs=["grooming"])
 
-    # Using CareTask from pawpal_system as the project's task class.
+    # Define tasks first (reference order for return value — not chronological).
+    evening_brush = CareTask(
+        title="Evening Brush",
+        duration_minutes=15,
+        priority="medium",
+        task_type="grooming",
+        due_window="evening",
+        frequency="daily",
+    )
+    afternoon_play = CareTask(
+        title="Afternoon Play",
+        duration_minutes=15,
+        priority="high",
+        task_type="exercise",
+        due_window="afternoon",
+        frequency="daily",
+    )
+    litter_check = CareTask(
+        title="Litter Check",
+        duration_minutes=10,
+        priority="low",
+        task_type="general",
+        due_window="evening",
+        frequency="daily",
+    )
     walk = CareTask(
         title="Morning Walk",
         duration_minutes=25,
@@ -35,27 +59,44 @@ def build_demo_data() -> tuple[Owner, list[Pet], list[CareTask]]:
         frequency="daily",
         is_required=True,
     )
-    brush = CareTask(
-        title="Evening Brush",
-        duration_minutes=15,
-        priority="medium",
-        task_type="grooming",
-        due_window="evening",
-        frequency="daily",
-    )
 
+    # Add tasks in non-chronological order (evening → afternoon → evening → morning).
+    cat.add_task(evening_brush)
+    dog.add_task(afternoon_play)
+    cat.add_task(litter_check)
     dog.add_task(walk)
     dog.add_task(breakfast)
-    cat.add_task(brush)
+    # Recurring daily: completes this instance and appends the next (due tomorrow).
+    breakfast.mark_complete(pet=dog)
 
     owner.add_pet(dog)
     owner.add_pet(cat)
 
-    return owner, [dog, cat], [walk, breakfast, brush]
+    tasks_in_creation_order = [
+        evening_brush,
+        afternoon_play,
+        litter_check,
+        walk,
+        breakfast,
+    ]
+    return owner, [dog, cat], tasks_in_creation_order
+
+
+def _print_task_lines(label: str, task_list: list[CareTask]) -> None:
+    print(label)
+    if not task_list:
+        print("  (none)")
+    else:
+        for task in task_list:
+            due = task.time or task.due_window or "anytime"
+            due_date = f" due {task.due_date.isoformat()}" if task.due_date else ""
+            status = "done" if task.is_completed else "pending"
+            print(f"  - {task.title} | {task.pet_name} | {due}{due_date} | {status}")
+    print()
 
 
 def print_demo(owner: Owner, pets: list[Pet], tasks: list[CareTask]) -> None:
-    """Print owner, pets, tasks, and generated schedule."""
+    """Print owner, pets, tasks, sorting, filtering, and generated schedule."""
     print("Owner")
     print(f"- Name: {owner.name}")
     print(f"- Daily Capacity: {owner.get_daily_capacity()} minutes")
@@ -66,13 +107,42 @@ def print_demo(owner: Owner, pets: list[Pet], tasks: list[CareTask]) -> None:
         print(f"- {pet.name} ({pet.species}, age {pet.age})")
     print()
 
-    print("Tasks")
+    print("Tasks (definition / creation order — not sorted by time)")
     for task in tasks:
         due_time = task.due_window or "anytime"
         print(f"- {task.describe()} | Time: {due_time} | Frequency: {task.frequency}")
     print()
 
+    storage_order = owner.get_all_tasks()
+    _print_task_lines(
+        "Tasks in storage order (owner.get_all_tasks — pet order, then add order)",
+        storage_order,
+    )
+
     scheduler = Scheduler(owner=owner, pet=pets[0], tasks=[])
+    ranked = scheduler.sort_or_rank_tasks()
+    _print_task_lines(
+        "Sorted via Scheduler.sort_or_rank_tasks (time window, then required, priority, …)",
+        ranked,
+    )
+
+    _print_task_lines(
+        "Filter: incomplete tasks only (owner.filter_tasks is_completed=False)",
+        owner.filter_tasks(is_completed=False),
+    )
+    _print_task_lines(
+        "Filter: completed tasks only (owner.filter_tasks is_completed=True)",
+        owner.filter_tasks(is_completed=True),
+    )
+    _print_task_lines(
+        'Filter: Buddy only (owner.filter_tasks pet_name="Buddy")',
+        owner.filter_tasks(pet_name="Buddy"),
+    )
+    _print_task_lines(
+        'Filter: Mochi only (owner.filter_tasks pet_name="Mochi")',
+        owner.filter_tasks(pet_name="Mochi"),
+    )
+
     plan = scheduler.generate_plan(date.today())
 
     print("Today's Schedule")
@@ -92,6 +162,42 @@ def print_demo(owner: Owner, pets: list[Pet], tasks: list[CareTask]) -> None:
         print("Unscheduled Tasks")
         for task in plan.unscheduled_tasks:
             print(f"- {task.title}")
+
+    print()
+    print("Conflict detection (manual plan: two tasks overlap 14:10–14:20)")
+    overlap_plan = DailyPlan(date=date.today())
+    overlap_plan.add_item(
+        CareTask(
+            title="Vet callback",
+            duration_minutes=20,
+            priority="high",
+            task_type="general",
+            pet_name="Buddy",
+        ),
+        "14:00",
+        "14:20",
+        "demo overlap",
+    )
+    overlap_plan.add_item(
+        CareTask(
+            title="Grooming slot",
+            duration_minutes=30,
+            priority="medium",
+            task_type="grooming",
+            pet_name="Mochi",
+        ),
+        "14:10",
+        "14:40",
+        "demo overlap",
+    )
+    print(
+        f"- 14:00–14:20: Vet callback (Buddy)  |  "
+        f"14:10–14:40: Grooming slot (Mochi)  → same time window"
+    )
+    conflict_warning = scheduler.scheduling_conflict_warning(overlap_plan)
+    assert conflict_warning is not None, "scheduler should warn when two tasks overlap"
+    print(conflict_warning)
+    print(f"(has_time_conflicts: {scheduler.has_time_conflicts(overlap_plan)})")
 
 
 if __name__ == "__main__":

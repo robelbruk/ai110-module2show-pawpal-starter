@@ -38,8 +38,12 @@
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+- **Describe one tradeoff your scheduler makes.**
+
+  - The main tradeoff is **sequential single-line scheduling**: `generate_plan` walks the ranked task list and places each task **immediately after** the previous one on **one** owner timeline (`day_start` → …). It does not allocate **parallel** tracks (e.g., two pets at once with help, or overlapping real-world windows). That keeps the implementation small and the output easy to read, but it **forces a strict order** and may **serialize** work that could overlap in practice. (Note: **conflict detection** is different—it compares **intervals** (`start`–`end`) and flags **overlapping durations**, not “exact same timestamp” only; half-open ranges mean **back-to-back** slots are not treated as conflicts. The default generator never produces overlaps, so that check is mainly for **manual or merged** plans.)
+
+- **Why is that tradeoff reasonable for this scenario?**
+  - For this project, **one owner** and **one daily minute budget** are the core constraints; a single ordered queue matches that story and is straightforward to test and print. A richer model (parallel resources, travel time, multiple caregivers) would be better for production but is heavier than needed here.
 
 ---
 
