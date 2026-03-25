@@ -6,9 +6,11 @@ class Owner {
   +name: str
   +available_minutes_per_day: int
   +preferences: dict
+  +pets: Pet[*]
   +update_preferences(new_preferences)
   +is_available(time_slot) bool
   +get_daily_capacity() int
+  +add_pet(pet)
 }
 
 class Pet {
@@ -25,7 +27,8 @@ class CareTask {
   +duration_minutes: int
   +priority: str
   +task_type: str
-  +due_window: str
+  +pet_name: str?
+  +due_window: str?
   +is_required: bool
   +priority_score() int
   +fits_in(remaining_minutes) bool
@@ -44,12 +47,12 @@ class Scheduler {
 }
 
 class DailyPlan {
-  +date: str
+  +date: DateType
   +scheduled_items: PlanItem[*]
-  +total_minutes: int
   +unscheduled_tasks: CareTask[*]
-  +add_item(task, start_time)
-  +remaining_time() int
+  +add_item(task, start_time, end_time, reason)
+  +total_minutes() int
+  +remaining_time(owner_capacity_minutes) int
   +to_display_rows() dict[*]
   +explain() str
 }

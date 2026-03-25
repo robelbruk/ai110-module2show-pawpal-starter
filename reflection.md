@@ -9,12 +9,23 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+  - My initial UML used six classes: `Owner`, `Pet`, `CareTask`, `Scheduler`, `DailyPlan`, and `PlanItem`. I separated "data holder" classes (`Pet`, `CareTask`, `PlanItem`) from orchestration/output classes (`Scheduler`, `DailyPlan`) so scheduling logic stayed centralized instead of scattered.
 - What classes did you include, and what responsibilities did you assign to each?
+  - `Owner`: stores owner-level constraints (name, available daily minutes, preferences) and provides availability/capacity helpers.
+  - `Pet`: stores pet profile data (name, species, age, special needs) and exposes methods that describe care requirements.
+  - `CareTask`: represents one care action with duration, priority, type, and scheduling metadata.
+  - `Scheduler`: orchestrates filtering feasible tasks, ranking tasks, and generating a `DailyPlan`.
+  - `DailyPlan`: stores one day's output, including scheduled and unscheduled tasks, plus display/explanation helpers.
+  - `PlanItem`: models one scheduled entry (task + time range + reason) so each scheduled decision is explicit and explainable.
 
 **b. Design changes**
-
 - Did your design change during implementation?
+    - Yes. I made two design updates after reviewing the skeleton
 - If yes, describe at least one change and why you made it.
+    - I added `Owner.pets` and an `add_pet()` method to explicitly model the owner-to-pet relationship instead of assuming a single pet forever.
+    - I added `CareTask.pet_name` so tasks can be tied to a specific pet, which prevents ambiguity if the app expands to multi-pet scheduling.
+    - I removed `DailyPlan.total_minutes` as a stored field and replaced it with a `total_minutes()` method to avoid state drift between `scheduled_items` and a manually maintained total.
+    - These changes make the model safer to evolve and reduce avoidable consistency bugs in scheduling logic.
 
 ---
 

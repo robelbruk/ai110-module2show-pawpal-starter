@@ -15,6 +15,7 @@ class Owner:
         self.name = name
         self.available_minutes_per_day = available_minutes_per_day
         self.preferences: Dict[str, Any] = preferences or {}
+        self.pets: List[Pet] = []
 
     def update_preferences(self, new_preferences: Dict[str, Any]) -> None:
         """Update owner preferences with new values."""
@@ -26,6 +27,10 @@ class Owner:
 
     def get_daily_capacity(self) -> int:
         """Return total available minutes for the day."""
+        pass
+
+    def add_pet(self, pet: Pet) -> None:
+        """Attach a pet to this owner profile."""
         pass
 
 
@@ -51,6 +56,7 @@ class CareTask:
     duration_minutes: int
     priority: str
     task_type: str
+    pet_name: Optional[str] = None
     due_window: Optional[str] = None
     is_required: bool = False
 
@@ -87,11 +93,14 @@ class PlanItem:
 class DailyPlan:
     date: DateType
     scheduled_items: List[PlanItem] = field(default_factory=list)
-    total_minutes: int = 0
     unscheduled_tasks: List[CareTask] = field(default_factory=list)
 
     def add_item(self, task: CareTask, start_time: str, end_time: str, reason: str) -> None:
-        """Append a scheduled plan item and update total minutes."""
+        """Append a scheduled plan item."""
+        pass
+
+    def total_minutes(self) -> int:
+        """Return the total scheduled minutes for this plan."""
         pass
 
     def remaining_time(self, owner_capacity_minutes: int) -> int:
